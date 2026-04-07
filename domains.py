@@ -147,20 +147,38 @@ def _build_timeseries_dataset(data, *, n_worlds, episodes, n_vars, seed,
 # ---------------------------------------------------------------------------
 
 def _resolve_gwosc_urls(event):
-    """Resolve HDF5 download URLs from GWOSC API."""
+    """Resolve HDF5 download URLs from GWOSC API.
+
+    Prefers the shortest available segment (event-centered, typically 32s)
+    at 4kHz sample rate. This matches the paper's data pipeline — using
+    full 4096s segments inflates P by giving the observer more temporal
+    structure to accumulate from.
+    """
     import json
-    api = f"https://gwosc.org/api/v2/events/{event}/strain-files?format=json"
+    api = (f"https://gwosc.org/api/v2/events/{event}/"
+           f"strain-files?format=json")
     try:
         data = json.loads(urllib.request.urlopen(api, timeout=15).read())
+        results = data.get("results",
+                           data if isinstance(data, list) else [])
         urls = {}
-        for entry in data.get("results", data if isinstance(data, list) else []):
-            det = entry.get("detector", "")
-            fmt = entry.get("format", "")
-            sr = entry.get("sample_rate", 0)
-            url = entry.get("url", entry.get("hdf5_url", ""))
-            if det in ("H1", "L1") and "hdf5" in fmt.lower() and sr == 4096:
-                if det not in urls:
-                    urls[det] = url
+        for det in ("H1", "L1"):
+            det_rows = [
+                r for r in results
+                if r.get("detector") == det
+                and "hdf" in r.get("file_format", "").lower()
+            ]
+            if not det_rows:
+                continue
+            det_rows.sort(key=lambda r: (
+                r.get("duration", 10**9),
+                abs(r.get("sample_rate_kHz",
+                          r.get("sample_rate", 4096) / 1000) - 4),
+            ))
+            url = det_rows[0].get("download_url",
+                                   det_rows[0].get("url", ""))
+            if url:
+                urls[det] = url
         return urls
     except Exception:
         return {}
@@ -216,21 +234,39 @@ def download_ligo(event="GW150914"):
         time.sleep(2)
 
 
+_EVENT_GPS = {
+    "GW150914": 1126259462.4,
+    "GW170817": 1187008882.4,
+    "GW190521": 1242442967.4,
+}
+
+
 def build_ligo_dataset(event="GW150914", *, n_worlds, episodes, n_vars,
                        seed, keep_prob):
     import h5py
     ligo_dir = DATA_DIR / "ligo"
     strains = {}
+    file_gps_start = None
     for det in ["H1", "L1"]:
         path = ligo_dir / f"{event}_{det}.hdf5"
         if not path.exists():
             raise RuntimeError(f"No data for {event} {det}. Run download first.")
         with h5py.File(path, "r") as f:
             strains[det] = f["strain"]["Strain"][:]
+            dt = f["strain"]["Strain"].attrs.get("Xspacing", 1.0 / 4096)
+            if file_gps_start is None and "meta" in f:
+                file_gps_start = float(f["meta"]["GPSstart"][()])
 
     h1, l1 = strains["H1"], strains["L1"]
     n_total = min(len(h1), len(l1))
-    center = n_total // 2
+
+    event_gps = _EVENT_GPS.get(event)
+    if event_gps and file_gps_start:
+        center = int((event_gps - file_gps_start) / dt)
+        center = max(n_vars * episodes, min(center, n_total - n_vars * episodes))
+    else:
+        center = n_total // 2
+
     rng = np.random.RandomState(seed)
     safe = max(episodes * n_vars * 2, 16384)
     a = _empty_arrays(n_worlds, episodes, n_vars)
