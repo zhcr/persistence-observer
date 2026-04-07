@@ -53,8 +53,8 @@ def print_comparison_table(data):
     print("PERSISTENCE MEASUREMENT vs PAPER")
     print("=" * 78)
     print(f"{'Domain':<22s} {'Measured P':>11s} {'Paper P':>9s} "
-          f"{'C meas':>7s} {'C paper':>8s} {'Match':>6s}")
-    print("-" * 78)
+          f"{'C meas':>7s} {'C paper':>8s} {'Source':>10s} {'Match':>6s}")
+    print("-" * 92)
 
     matches = 0
     total = 0
@@ -64,6 +64,7 @@ def print_comparison_table(data):
         mean_P = np.mean([r["P"] for r in runs])
         std_P = np.std([r["P"] for r in runs]) if len(runs) > 1 else 0
         C = runs[0].get("C", None)
+        source_kind = runs[0].get("source_kind", "unknown")
 
         ref = REFERENCE_RESULTS.get(name, {})
         paper_P = ref.get("P")
@@ -83,11 +84,16 @@ def print_comparison_table(data):
         pp_str = f"{paper_P:+.3f}" if paper_P is not None else "  --"
         c_str = f"{C:.3f}" if C is not None else "  --"
         cp_str = f"{paper_C:.3f}" if paper_C is not None else "  --"
+        source_str = (
+            "synthetic"
+            if source_kind == "synthetic_fallback"
+            else ("derived" if source_kind == "derived" else source_kind)
+        )
 
         print(f"{name:<22s} {p_str:>11s} {pp_str:>9s} "
-              f"{c_str:>7s} {cp_str:>8s} {match_str:>6s}")
+              f"{c_str:>7s} {cp_str:>8s} {source_str:>10s} {match_str:>6s}")
 
-    print("-" * 78)
+    print("-" * 92)
     print(f"Sign matches: {matches}/{total}")
     print()
 
@@ -204,9 +210,12 @@ def print_regime_summary(data):
 
     zero_P = []
     positive_P = []
+    synthetic = []
     for key, runs in by_domain.items():
         name = runs[0].get("name", key)
         mean_P = np.mean([r["P"] for r in runs])
+        if runs[0].get("source_kind") == "synthetic_fallback":
+            synthetic.append(name)
         if abs(mean_P) < 0.01:
             zero_P.append(name)
         elif mean_P > 0:
@@ -229,6 +238,12 @@ def print_regime_summary(data):
             print(f"  {name:<22s}  P = {P:+.4f}")
         print("  -> The observer benefits from remembering past episodes.")
         print("     Higher P = more temporal structure to accumulate.")
+    if synthetic:
+        print(f"\nSynthetic fallback domains in this run:")
+        for name in synthetic:
+            print(f"  {name}")
+        print("  -> These domains were measured on generated fallback data,")
+        print("     not on live public downloads for this run.")
     print()
 
 

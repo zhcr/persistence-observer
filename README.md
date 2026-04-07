@@ -5,6 +5,13 @@ Reproducibility package for:
 > **Persistence Structure of Bandwidth-Limited Observation**
 > Zachary Hayes, 2026
 
+## Related papers
+
+- Paper 1: [Persistence Structure of Bandwidth-Limited Observation](https://zenodo.org/records/19323952)
+- Paper 2: [Field Equations from Bandwidth-Limited Observation](https://zenodo.org/records/19412301)
+
+See also `PAPERS.md` for the public paper links and DOIs.
+
 ## What this measures
 
 How much does temporal memory help a bandwidth-limited observer predict
@@ -31,6 +38,12 @@ python measure.py --domain all --seeds 1
 # Visualize results: comparison table + axis plot
 python visualize.py
 ```
+
+Each measurement row in `results/persistence_measurement.json` includes:
+
+- `source_kind`: `real`, `synthetic_fallback`, or `derived`
+- `source_label`: the source used for this run
+- `source_note`: a short provenance note
 
 ## The empirical law
 
@@ -78,7 +91,8 @@ of ~2-3x on 1 seed, and converge closer with 10 seeds.
 All data downloads from public sources. No data is redistributed in
 this repo. Some public URLs are intermittently unavailable; the pipeline
 uses multiple fallback URLs and generates realistic synthetic data as a
-last resort. Synthetic fallbacks are clearly labeled in the output.
+last resort. Synthetic fallbacks are now recorded explicitly in the
+runtime output and in `results/persistence_measurement.json`.
 
 | Domain | Primary source | Status |
 |--------|---------------|--------|
@@ -91,8 +105,8 @@ last resort. Synthetic fallbacks are clearly labeled in the output.
 | S2 orbit | Generated from published orbital parameters | Always works |
 | IceCube | [HEASARC](https://heasarc.gsfc.nasa.gov) | Stable (batch query) |
 | Weather | [NOAA NCEI](https://www.ncei.noaa.gov) | Stable |
-| Quasars | [UW/SDSS](https://faculty.washington.edu/ivezic/) | Intermittent — synthetic fallback |
-| FRB | [CHIME](https://chime-frb-open-data.github.io) | Intermittent — synthetic fallback |
+| Quasars | [UW/SDSS](https://faculty.washington.edu/ivezic/) | Intermittent — may use synthetic fallback |
+| FRB | [CHIME](https://chime-frb-open-data.github.io) | Intermittent — may use synthetic fallback |
 
 ## Bring your own domain
 

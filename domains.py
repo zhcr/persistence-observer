@@ -17,6 +17,7 @@ Data format (per domain):
 
 from __future__ import annotations
 
+import json
 import time
 import urllib.request
 from pathlib import Path
@@ -25,6 +26,96 @@ import numpy as np
 import torch
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+SOURCE_META_DIR = DATA_DIR / "_source_meta"
+
+
+def _source_meta_path(domain_key):
+    return SOURCE_META_DIR / f"{domain_key}.json"
+
+
+def _write_source_meta(domain_key, *, source_kind, source_label,
+                       source_url=None, source_note=None):
+    SOURCE_META_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "domain": domain_key,
+        "source_kind": source_kind,
+        "source_label": source_label,
+        "source_url": source_url,
+        "source_note": source_note,
+    }
+    _source_meta_path(domain_key).write_text(json.dumps(payload, indent=2))
+    return payload
+
+
+def get_domain_source_info(domain_key):
+    path = _source_meta_path(domain_key)
+    if path.exists():
+        return json.loads(path.read_text())
+
+    defaults = {
+        "ligo_gw150914": {
+            "source_kind": "real",
+            "source_label": "GWOSC",
+            "source_url": "https://gwosc.org",
+            "source_note": None,
+        },
+        "ligo_gw170817": {
+            "source_kind": "real",
+            "source_label": "GWOSC",
+            "source_url": "https://gwosc.org",
+            "source_note": None,
+        },
+        "ligo_gw190521": {
+            "source_kind": "real",
+            "source_label": "GWOSC",
+            "source_url": "https://gwosc.org",
+            "source_note": None,
+        },
+        "cmb": {
+            "source_kind": "real",
+            "source_label": "Planck / ESA",
+            "source_url": "http://pla.esac.esa.int",
+            "source_note": None,
+        },
+        "supernovae": {
+            "source_kind": "real",
+            "source_label": "Pantheon+",
+            "source_url": "https://github.com/PantheonPlusSH0ES/DataRelease",
+            "source_note": None,
+        },
+        "solar_wind": {
+            "source_kind": "real",
+            "source_label": "NASA OMNI",
+            "source_url": "https://spdf.gsfc.nasa.gov",
+            "source_note": None,
+        },
+        "sunspots": {
+            "source_kind": "real",
+            "source_label": "SILSO",
+            "source_url": "https://www.sidc.be/SILSO/",
+            "source_note": None,
+        },
+        "s2_orbit": {
+            "source_kind": "derived",
+            "source_label": "Gillessen+ 2009 orbital parameters",
+            "source_url": None,
+            "source_note": "Generated from published orbital parameters, not downloaded as an instrument file.",
+        },
+        "weather": {
+            "source_kind": "real",
+            "source_label": "NOAA NCEI",
+            "source_url": "https://www.ncei.noaa.gov",
+            "source_note": None,
+        },
+    }
+    payload = defaults.get(domain_key, {
+        "source_kind": "unknown",
+        "source_label": "unknown",
+        "source_url": None,
+        "source_note": "Source provenance metadata is unavailable for this cached domain. Re-run --download to refresh it.",
+    }).copy()
+    payload["domain"] = domain_key
+    return payload
 
 
 def _download(url, out, *, label="", retries=3, delay=2.0):
@@ -201,6 +292,7 @@ _GW_FALLBACK_URLS = {
 
 
 def download_ligo(event="GW150914"):
+    domain_key = f"ligo_{event.lower()}"
     ligo_dir = DATA_DIR / "ligo"
     ligo_dir.mkdir(parents=True, exist_ok=True)
 
@@ -213,6 +305,13 @@ def download_ligo(event="GW150914"):
             needed.append(det)
 
     if not needed:
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="GWOSC",
+            source_url="https://gwosc.org",
+            source_note="Downloaded from the Gravitational Wave Open Science Center.",
+        )
         return
 
     print(f"  {event}: resolving URLs from GWOSC API...")
@@ -232,6 +331,14 @@ def download_ligo(event="GW150914"):
         if _download(url, out, label=f"{event} {det}", delay=3.0):
             print(f"  {event} {det}: saved ({out.stat().st_size / 1e6:.1f} MB)")
         time.sleep(2)
+    if all((ligo_dir / f"{event}_{det}.hdf5").exists() for det in ("H1", "L1")):
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="GWOSC",
+            source_url="https://gwosc.org",
+            source_note="Downloaded from the Gravitational Wave Open Science Center.",
+        )
 
 
 _EVENT_GPS = {
@@ -324,6 +431,7 @@ _EHT_M87_CSVS = {
 
 
 def download_eht(target="sgra"):
+    domain_key = f"eht_{target}"
     eht_dir = DATA_DIR / "eht"
     eht_dir.mkdir(parents=True, exist_ok=True)
     if target == "sgra":
@@ -357,6 +465,26 @@ def download_eht(target="sgra"):
     if not got_any:
         print(f"  EHT {target}: no CSVs from GitHub, generating synthetic")
         _generate_synthetic_eht(eht_dir, target)
+        _write_source_meta(
+            domain_key,
+            source_kind="synthetic_fallback",
+            source_label="synthetic EHT visibility set",
+            source_url=None,
+            source_note="The public GitHub CSVs were unavailable, so a synthetic interferometric fallback was generated.",
+        )
+    else:
+        repo_url = (
+            "https://github.com/eventhorizontelescope/2022-D02-01"
+            if target == "sgra"
+            else "https://github.com/eventhorizontelescope/2019-D01-01"
+        )
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="Event Horizon Telescope data release",
+            source_url=repo_url,
+            source_note="Downloaded from the EHT public GitHub data release.",
+        )
 
 
 def _generate_synthetic_eht(eht_dir, target):
@@ -476,11 +604,19 @@ def build_eht_dataset(target="sgra", *, n_worlds, episodes, n_vars,
 # ---------------------------------------------------------------------------
 
 def download_cmb():
+    domain_key = "cmb"
     cmb_dir = DATA_DIR / "cmb"
     cmb_dir.mkdir(parents=True, exist_ok=True)
     out = cmb_dir / "planck_tt_spectrum.txt"
     if out.exists():
         print("  CMB: exists")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="Planck / ESA",
+            source_url="http://pla.esac.esa.int",
+            source_note="Downloaded from the ESA Planck Legacy Archive.",
+        )
         return
     url = ("http://pla.esac.esa.int/pla/aio/product-action?"
            "COSMOLOGY.FILE_ID=COM_PowerSpect_CMB-TT-full_R3.01.txt")
@@ -488,6 +624,13 @@ def download_cmb():
         print("  CMB: downloading Planck TT spectrum ...")
         urllib.request.urlretrieve(url, out)
         print(f"  CMB: saved ({out.stat().st_size / 1e3:.0f} KB)")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="Planck / ESA",
+            source_url="http://pla.esac.esa.int",
+            source_note="Downloaded from the ESA Planck Legacy Archive.",
+        )
     except Exception as e:
         print(f"  CMB: failed: {e}")
 
@@ -521,11 +664,19 @@ def build_cmb_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_supernovae():
+    domain_key = "supernovae"
     sn_dir = DATA_DIR / "supernova"
     sn_dir.mkdir(parents=True, exist_ok=True)
     out = sn_dir / "pantheon_plus.dat"
     if out.exists():
         print("  Supernovae: exists")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="Pantheon+",
+            source_url="https://github.com/PantheonPlusSH0ES/DataRelease",
+            source_note="Downloaded from the Pantheon+ / SH0ES public data release.",
+        )
         return
     url = ("https://raw.githubusercontent.com/PantheonPlusSH0ES/DataRelease/"
            "main/Pantheon%2B_Data/4_DISTANCES_AND_COVAR/Pantheon%2BSH0ES.dat")
@@ -533,6 +684,13 @@ def download_supernovae():
         print("  Supernovae: downloading Pantheon+ ...")
         urllib.request.urlretrieve(url, out)
         print(f"  Supernovae: saved ({out.stat().st_size / 1e3:.0f} KB)")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="Pantheon+",
+            source_url="https://github.com/PantheonPlusSH0ES/DataRelease",
+            source_note="Downloaded from the Pantheon+ / SH0ES public data release.",
+        )
     except Exception as e:
         print(f"  Supernovae: failed: {e}")
 
@@ -585,17 +743,32 @@ def build_supernovae_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_solar_wind():
+    domain_key = "solar_wind"
     sw_dir = DATA_DIR / "solar_wind"
     sw_dir.mkdir(parents=True, exist_ok=True)
     out = sw_dir / "omni2_2023.dat"
     if out.exists():
         print("  Solar wind: exists")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="NASA OMNI",
+            source_url="https://spdf.gsfc.nasa.gov/pub/data/omni/",
+            source_note="Downloaded from NASA SPDF OMNI low-resolution solar wind data.",
+        )
         return
     url = "https://spdf.gsfc.nasa.gov/pub/data/omni/low_res_omni/omni2_2023.dat"
     try:
         print("  Solar wind: downloading NASA OMNI ...")
         urllib.request.urlretrieve(url, out)
         print(f"  Solar wind: saved ({out.stat().st_size / 1e3:.0f} KB)")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="NASA OMNI",
+            source_url="https://spdf.gsfc.nasa.gov/pub/data/omni/",
+            source_note="Downloaded from NASA SPDF OMNI low-resolution solar wind data.",
+        )
     except Exception as e:
         print(f"  Solar wind: failed: {e}")
 
@@ -643,17 +816,32 @@ def build_solar_wind_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_sunspots():
+    domain_key = "sunspots"
     ss_dir = DATA_DIR / "sunspots"
     ss_dir.mkdir(parents=True, exist_ok=True)
     out = ss_dir / "SN_d_tot_V2.0.csv"
     if out.exists():
         print("  Sunspots: exists")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="SILSO",
+            source_url="https://www.sidc.be/SILSO/",
+            source_note="Downloaded from the SILSO daily sunspot number archive.",
+        )
         return
     url = "https://www.sidc.be/SILSO/INFO/sndtotcsv.php"
     try:
         print("  Sunspots: downloading SILSO daily ...")
         urllib.request.urlretrieve(url, out)
         print(f"  Sunspots: saved ({out.stat().st_size / 1e3:.0f} KB)")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="SILSO",
+            source_url="https://www.sidc.be/SILSO/",
+            source_note="Downloaded from the SILSO daily sunspot number archive.",
+        )
     except Exception as e:
         print(f"  Sunspots: failed: {e}")
 
@@ -686,12 +874,15 @@ def build_sunspot_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_quasars():
+    domain_key = "quasars"
     qso_dir = DATA_DIR / "quasar"
     qso_dir.mkdir(parents=True, exist_ok=True)
     out = qso_dir / "DB_QSO_S82.dat"
     if out.exists():
         print("  Quasars: exists")
-        return
+        meta = get_domain_source_info(domain_key)
+        if meta["source_kind"] != "unknown":
+            return
     urls = [
         "https://faculty.washington.edu/ivezic/macleod/qso_dr7/DB_QSO_S82.dat",
         "https://faculty.washington.edu/ivezic/cmacleod/qso_dr7/DB_QSO_S82.dat",
@@ -700,9 +891,23 @@ def download_quasars():
         print(f"  Quasars: trying {url.split('/')[-2]}/...")
         if _download(url, out, label="Quasars"):
             print(f"  Quasars: saved ({out.stat().st_size / 1e6:.1f} MB)")
+            _write_source_meta(
+                domain_key,
+                source_kind="real",
+                source_label="UW / SDSS Stripe 82",
+                source_url=url,
+                source_note="Downloaded from the Stripe 82 quasar variability catalog.",
+            )
             return
     print("  Quasars: all URLs failed — generating synthetic fallback")
     _generate_synthetic_quasars(qso_dir)
+    _write_source_meta(
+        domain_key,
+        source_kind="synthetic_fallback",
+        source_label="synthetic quasar light curves",
+        source_url=None,
+        source_note="Public Stripe 82 quasar URLs were unavailable, so synthetic light curves were generated.",
+    )
 
 
 def _generate_synthetic_quasars(qso_dir):
@@ -799,12 +1004,15 @@ def build_quasar_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_frb():
+    domain_key = "frb"
     frb_dir = DATA_DIR / "frb"
     frb_dir.mkdir(parents=True, exist_ok=True)
     out = frb_dir / "chime_frb_catalog.csv"
     if out.exists():
         print("  FRB: exists")
-        return
+        meta = get_domain_source_info(domain_key)
+        if meta["source_kind"] != "unknown":
+            return
     urls = [
         "https://hf-mirror.492719920.workers.dev/datasets/juliensimon/chime-frb-catalog/resolve/main/chime_frb_catalog.csv",
         "https://www.canfar.net/storage/vault/list/AstroDataCitationDOI/CISTI.CANFAR/21.0007/data/catalog1.csv",
@@ -813,9 +1021,23 @@ def download_frb():
         print(f"  FRB: trying {url[:60]}...")
         if _download(url, out, label="FRB"):
             print(f"  FRB: saved ({out.stat().st_size / 1e3:.0f} KB)")
+            _write_source_meta(
+                domain_key,
+                source_kind="real",
+                source_label="CHIME / FRB catalog",
+                source_url=url,
+                source_note="Downloaded from a public CHIME / FRB catalog mirror.",
+            )
             return
     print("  FRB: all URLs failed — generating synthetic fallback")
     _generate_synthetic_frb(frb_dir)
+    _write_source_meta(
+        domain_key,
+        source_kind="synthetic_fallback",
+        source_label="synthetic FRB catalog",
+        source_url=None,
+        source_note="Public FRB catalog URLs were unavailable, so a synthetic catalog was generated.",
+    )
 
 
 def _generate_synthetic_frb(frb_dir):
@@ -864,11 +1086,19 @@ def build_frb_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 
 def download_s2():
     """Generate S2 orbit from published orbital parameters."""
+    domain_key = "s2_orbit"
     s2_dir = DATA_DIR / "s2"
     s2_dir.mkdir(parents=True, exist_ok=True)
     out = s2_dir / "s2_orbit.npz"
     if out.exists():
         print("  S2: exists")
+        _write_source_meta(
+            domain_key,
+            source_kind="derived",
+            source_label="Gillessen+ 2009 orbital parameters",
+            source_url=None,
+            source_note="Generated from published S2 orbital parameters rather than downloaded as an instrument file.",
+        )
         return
     print("  S2: generating Keplerian orbit (Gillessen+ 2009) ...")
     rng = np.random.RandomState(42)
@@ -896,6 +1126,13 @@ def download_s2():
     dec_obs = dec + rng.normal(0, 0.3, n_obs)
     np.savez(out, time=t, ra=ra_obs, dec=dec_obs)
     print(f"  S2: {n_obs} positions over {2 * period:.1f} yr")
+    _write_source_meta(
+        domain_key,
+        source_kind="derived",
+        source_label="Gillessen+ 2009 orbital parameters",
+        source_url=None,
+        source_note="Generated from published S2 orbital parameters rather than downloaded as an instrument file.",
+    )
 
 
 def build_s2_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
@@ -915,12 +1152,15 @@ def build_s2_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_icecube():
+    domain_key = "icecube"
     nu_dir = DATA_DIR / "icecube"
     nu_dir.mkdir(parents=True, exist_ok=True)
     out = nu_dir / "icecube_events.csv"
     if out.exists() and out.stat().st_size > 100:
         print("  IceCube: exists")
-        return
+        meta = get_domain_source_info(domain_key)
+        if meta["source_kind"] != "unknown":
+            return
 
     # Try Harvard Dataverse direct file IDs (from medusa/download_neutrino_s2.py)
     dv_ids = [4617003, 4617004, 4617005, 4617006, 4617007,
@@ -930,6 +1170,13 @@ def download_icecube():
         print(f"  IceCube: trying Dataverse file {fid}...")
         if _download(url, out, label="IceCube"):
             print(f"  IceCube: saved ({out.stat().st_size / 1e3:.0f} KB)")
+            _write_source_meta(
+                domain_key,
+                source_kind="real",
+                source_label="Harvard Dataverse / IceCube",
+                source_url=url,
+                source_note="Downloaded from the IceCube public Dataverse release.",
+            )
             return
 
     # Try HEASARC batch query
@@ -942,12 +1189,26 @@ def download_icecube():
         if len(data) > 500:
             out.write_bytes(data)
             print(f"  IceCube: saved from HEASARC ({len(data)} bytes)")
+            _write_source_meta(
+                domain_key,
+                source_kind="real",
+                source_label="HEASARC IceCube catalog",
+                source_url=url,
+                source_note="Downloaded from the HEASARC IceCube point-source catalog batch query.",
+            )
             return
     except Exception as e:
         print(f"  IceCube: HEASARC failed: {e}")
 
     print("  IceCube: all sources failed — generating synthetic fallback")
     _generate_synthetic_icecube(nu_dir)
+    _write_source_meta(
+        domain_key,
+        source_kind="synthetic_fallback",
+        source_label="synthetic IceCube event catalog",
+        source_url=None,
+        source_note="Public IceCube sources were unavailable, so a synthetic neutrino event catalog was generated.",
+    )
 
 
 def _generate_synthetic_icecube(nu_dir):
@@ -1025,11 +1286,19 @@ def build_icecube_dataset(*, n_worlds, episodes, n_vars, seed, keep_prob):
 # ---------------------------------------------------------------------------
 
 def download_weather():
+    domain_key = "weather"
     wx_dir = DATA_DIR / "weather"
     wx_dir.mkdir(parents=True, exist_ok=True)
     out = wx_dir / "weather_nyc.csv"
     if out.exists():
         print("  Weather: exists")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="NOAA NCEI",
+            source_url="https://www.ncei.noaa.gov",
+            source_note="Downloaded from NOAA daily summaries.",
+        )
         return
     url = ("https://www.ncei.noaa.gov/access/services/data/v1?"
            "dataset=daily-summaries&stations=USW00094728"
@@ -1039,6 +1308,13 @@ def download_weather():
         print("  Weather: downloading NOAA daily summaries ...")
         urllib.request.urlretrieve(url, out)
         print(f"  Weather: saved ({out.stat().st_size / 1e3:.0f} KB)")
+        _write_source_meta(
+            domain_key,
+            source_kind="real",
+            source_label="NOAA NCEI",
+            source_url="https://www.ncei.noaa.gov",
+            source_note="Downloaded from NOAA daily summaries.",
+        )
     except Exception as e:
         print(f"  Weather: failed: {e}")
 

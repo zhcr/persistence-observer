@@ -25,7 +25,7 @@ import numpy as np
 import torch
 
 from observer import PersistentObserver, train_model, evaluate, DEVICE
-from domains import DOMAINS
+from domains import DOMAINS, get_domain_source_info
 from constants import implied_x, REFERENCE_RESULTS
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
@@ -103,6 +103,7 @@ def measure_domain(domain_key, *, seed, n_worlds=256, test_worlds=64,
     P = results["last"] - results["gru"]
     C = compute_C(train_data["obs"], episodes, n_vars)
     x = implied_x(P, C) if C > 0.01 and P > 0.001 else None
+    source = get_domain_source_info(domain_key)
 
     row = {
         "domain": domain_key,
@@ -114,14 +115,20 @@ def measure_domain(domain_key, *, seed, n_worlds=256, test_worlds=64,
         "C": C,
         "implied_x": round(x, 3) if x is not None else None,
         "regime": info["regime"],
+        "source_kind": source["source_kind"],
+        "source_label": source["source_label"],
+        "source_url": source["source_url"],
+        "source_note": source["source_note"],
     }
 
     if verbose:
         ref = REFERENCE_RESULTS.get(info["name"], {})
         ref_P = ref.get("P", "?")
         x_str = f"{x:.3f}" if x is not None else "--"
+        source_str = f"{source['source_kind']}:{source['source_label']}"
         print(f"  {info['name']:20s}  P={P:+.4f}  C={C:.3f}"
-              f"  x={x_str}  (paper: P={ref_P})")
+              f"  x={x_str}  (paper: P={ref_P})"
+              f"  [{source_str}]")
 
     return row
 
@@ -195,6 +202,9 @@ def main():
                 "std_P": round(float(gaps.std()), 6),
                 "C": sub[0]["C"],
                 "n_seeds": len(sub),
+                "source_kind": sub[0]["source_kind"],
+                "source_label": sub[0]["source_label"],
+                "source_note": sub[0]["source_note"],
             }
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -209,13 +219,18 @@ def main():
     print(f"\n{'=' * 60}")
     print("RESULTS")
     print(f"{'=' * 60}")
-    print(f"{'Domain':20s}  {'P (mean±std)':18s}  {'C':6s}  Paper P")
-    print("-" * 60)
+    print(f"{'Domain':20s}  {'P (mean±std)':18s}  {'C':6s}  {'Source':14s}  Paper P")
+    print("-" * 86)
     for key, s in summary.items():
         ref = REFERENCE_RESULTS.get(s["name"], {})
         ref_P = ref.get("P", "?")
+        source_tag = (
+            "synthetic"
+            if s["source_kind"] == "synthetic_fallback"
+            else ("derived" if s["source_kind"] == "derived" else "real")
+        )
         print(f"{s['name']:20s}  {s['mean_P']:+.4f}±{s['std_P']:.4f}"
-              f"      {s['C']:.3f}  {ref_P}")
+              f"      {s['C']:.3f}  {source_tag:14s}  {ref_P}")
 
     print(f"\nSaved: {out_path}")
     print(f"Elapsed: {elapsed}s ({elapsed / 3600:.2f}h)")
