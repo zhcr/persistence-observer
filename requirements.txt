@@ -1,0 +1,4 @@
+numpy>=1.24
+torch>=2.0
+h5py>=3.8
+matplotlib>=3.7
