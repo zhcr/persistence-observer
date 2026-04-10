@@ -1,7 +1,8 @@
 """Frozen law constants from the replication snapshot (2026-03-29).
 
-These constants define the calibrated empirical model from the paper
-"Persistence Structure of Bandwidth-Limited Observation":
+These constants define the calibrated empirical model for the
+observation-manifold / persistence-axis results used in the current
+Medusa paper draft:
 
     P(x, C, tau, delta) = sigma * C * tau * kappa(x) * (1 - x * delta)
 

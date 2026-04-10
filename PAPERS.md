@@ -1,18 +1,18 @@
 # Papers
 
-This repository accompanies the public papers below.
+The earlier split into separate public `Paper 1` / `Paper 2` releases is
+retired. Those titles are no longer the active public framing for this
+work.
 
-## Paper 1
+## Current status
 
-- Title: [Persistence Structure of Bandwidth-Limited Observation](https://zenodo.org/records/19323952)
-- DOI: [10.5281/zenodo.19323952](https://doi.org/10.5281/zenodo.19323952)
-
-## Paper 2
-
-- Title: [Field Equations from Bandwidth-Limited Observation: A Persistent Observer Discovers Newtonian and Schwarzschild Gravity from Signal Prediction Alone](https://zenodo.org/records/19412301)
-- DOI: [10.5281/zenodo.19412301](https://doi.org/10.5281/zenodo.19412301)
+- The current unified paper is still being prepared for public posting.
+- The active draft in this repo is
+  [`../medusa/paper/does_the_ruler_measure_anything_real.tex`](../medusa/paper/does_the_ruler_measure_anything_real.tex).
+- The formal mathematical companion in this repo is
+  [`../medusa/paper/physics_on_finite_predictive_quotients.tex`](../medusa/paper/physics_on_finite_predictive_quotients.tex).
 
 ## Relation to this repo
 
-- This repo is the reproducibility package for Paper 1.
-- Paper 2 is a companion paper on field-equation recovery from bandwidth-limited observation.
+- This repo is the reproducibility package for the observation-manifold /
+  persistence-axis part of the current Medusa paper draft.

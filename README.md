@@ -1,16 +1,17 @@
-# Persistence Structure of Bandwidth-Limited Observation
+# Persistence Observer
 
-Reproducibility package for:
+Reproducibility package for the observation-manifold / persistence-axis
+results used in the current Medusa paper draft.
 
-> **Persistence Structure of Bandwidth-Limited Observation**
-> Zachary Hayes, 2026
+## Paper status
 
-## Related papers
+The earlier two-paper split has been retired. The current unified paper
+is still being prepared for public posting.
 
-- Paper 1: [Persistence Structure of Bandwidth-Limited Observation](https://zenodo.org/records/19323952)
-- Paper 2: [Field Equations from Bandwidth-Limited Observation](https://zenodo.org/records/19412301)
+- Current unified draft: [`../medusa/paper/does_the_ruler_measure_anything_real.tex`](../medusa/paper/does_the_ruler_measure_anything_real.tex)
+- Formal companion: [`../medusa/paper/physics_on_finite_predictive_quotients.tex`](../medusa/paper/physics_on_finite_predictive_quotients.tex)
 
-See also `PAPERS.md` for the public paper links and DOIs.
+See also `PAPERS.md` for the current public-paper status.
 
 ## What this measures
 
@@ -29,7 +30,7 @@ P > 0 means temporal memory helps. P ≈ 0 means each episode is sufficient.
 ```bash
 pip install -r requirements.txt
 
-# Download data for all 14 domains
+# Download data for all 13 real-data domains plus the weather control
 python measure.py --download
 
 # Measure all domains (1 seed, ~20 min on GPU)
@@ -134,7 +135,7 @@ construction — you just provide the numpy array.
 | File | What |
 |------|------|
 | `observer.py` | PersistentObserver model (GRU + memoryless baseline) |
-| `domains.py` | Data downloaders and dataset builders for 14 domains |
+| `domains.py` | Data downloaders and dataset builders for 13 real-data domains plus controls |
 | `measure.py` | Main pipeline: download, train, evaluate P and C |
 | `constants.py` | Frozen law constants with full derivation context |
 | `visualize.py` | Results table, axis plot, and regime summary |

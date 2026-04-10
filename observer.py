@@ -4,7 +4,8 @@ The observer is a per-entity recurrent model that processes episodic
 observations of a physical domain. It supports multiple accumulation
 modes to test whether temporal memory helps prediction.
 
-Reference: "Persistence Structure of Bandwidth-Limited Observation"
+Reference: the observation-manifold / persistence-axis results used in
+the current Medusa paper draft.
 """
 
 import numpy as np
