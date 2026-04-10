@@ -1,17 +1,8 @@
 # Persistence Observer
 
 Reproducibility package for the observation-manifold / persistence-axis
-results used in the current Medusa paper draft.
-
-## Paper status
-
-The earlier two-paper split has been retired. The current unified paper
-is still being prepared for public posting.
-
-- Current unified draft: [`../medusa/paper/does_the_ruler_measure_anything_real.tex`](../medusa/paper/does_the_ruler_measure_anything_real.tex)
-- Formal companion: [`../medusa/paper/physics_on_finite_predictive_quotients.tex`](../medusa/paper/physics_on_finite_predictive_quotients.tex)
-
-See also `PAPERS.md` for the current public-paper status.
+measurement described in Hayes (2026), *Physical Law from
+Bandwidth-Limited Observation*.
 
 ## What this measures
 
